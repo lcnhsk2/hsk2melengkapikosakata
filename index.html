@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSK 2 Hanzi Practice Game with TTS</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 800px;
+            padding: 30px;
+            text-align: center;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+        .timer {
+            background: #3498db;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .question-container {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            margin: 20px 0;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .question-number {
+            color: #e74c3c;
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        .question-text {
+            font-size: 22px;
+            line-height: 1.6;
+            color: #2c3e50;
+            margin: 10px 0;
+            min-height: 30px;
+        }
+        .blank {
+            display: inline-block;
+            min-width: 80px;
+            height: 40px;
+            border-bottom: 3px solid #3498db;
+            margin: 0 8px;
+            vertical-align: middle;
+            font-size: 22px;
+            color: #3498db;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 15px;
+            font-size: 20px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        input:focus {
+            border-color: #3498db;
+        }
+        .btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 14px 30px;
+            font-size: 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #2980b9;
+        }
+        .btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        .feedback {
+            margin-top: 15px;
+            font-size: 18px;
+            min-height: 25px;
+            font-weight: bold;
+        }
+        .correct { color: #27ae60; }
+        .incorrect { color: #e74c3c; }
+        .results {
+            display: none;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            margin-top: 20px;
+        }
+        .score {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 15px 0;
+        }
+        .review-btn {
+            background: #2ecc71;
+            margin-top: 20px;
+        }
+        .review-btn:hover {
+            background: #27ae60;
+        }
+        .hidden { display: none; }
+        .progress {
+            margin: 15px 0;
+            font-size: 16px;
+            color: #7f8c8d;
+        }
+        .audio-btn {
+            background: #9b59b6;
+            padding: 8px 15px;
+            margin-top: 10px;
+            font-size: 16px;
+        }
+        .audio-btn:hover {
+            background: #8e44ad;
+        }
+        .audio-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>HSK 2 Hanzi Practice Game</h1>
+        <div class="timer" id="timer">Time: 45:00</div>
+        <div class="progress" id="progress">Question 1 of 30</div>
+        
+        <div class="question-container">
+            <div class="question-number" id="question-number">Question 1</div>
+            <div class="question-text" id="question-text"></div>
+            <button class="btn audio-btn" id="speak-btn">🔊 Listen (Mandarin)</button>
+            <input type="text" id="answer-input" placeholder="输入汉字 (Enter Hanzi)" maxlength="2">
+            <button class="btn" id="submit-btn">Submit Answer</button>
+        </div>
+        
+        <div class="feedback" id="feedback"></div>
+        
+        <div class="results" id="results">
+            <div class="score" id="final-score"></div>
+            <button class="btn review-btn" id="restart-btn">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // HSK 2 Vocabulary Questions
+        const questions = [
+            { sentence: "我每天早上六点就______床。", answer: "起" },
+            { sentence: "妈妈做的饭很好______。", answer: "吃" },
+            { sentence: "这本书太难了，我看不______。", answer: "懂" },
+            { sentence: "今天天气很______，我们去公园吧。", answer: "好" },
+            { sentence: "他每天都骑______车去上班。", answer: "自行" },
+            { sentence: "我不______英语，只学过中文。", answer: "会" },
+            { sentence: "星期天我通常在家看电______。", answer: "视" },
+            { sentence: "这个电影很有意______，你应该看看。", answer: "思" },
+            { sentence: "她穿了一条红______子，很好看。", answer: "裙" },
+            { sentence: "老师说我们明天有小______。", answer: "考" },
+            { sentence: "我不______这个字怎么读。", answer: "认" },
+            { sentence: "他跑得很快，我追不______。", answer: "上" },
+            { sentence: "我想______一杯咖啡。", answer: "喝" },
+            { sentence: "这个超市离我家很______。", answer: "近" },
+            { sentence: "请你把窗户关______。", answer: "上" },
+            { sentence: "他昨天______病了，没来上课。", answer: "生" },
+            { sentence: "这双鞋很______，我不买了。", answer: "贵" },
+            { sentence: "我们一起______回家吧。", answer: "走" },
+            { sentence: "北京的冬天很______。", answer: "冷" },
+            { sentence: "你有______手机吗？借我打个电话。", answer: "借" },
+            { sentence: "我不______道他住在哪里。", answer: "知" },
+            { sentence: "这件衣服太______了，我要换一件。", answer: "大" },
+            { sentence: "我每天练习写中______。", answer: "文" },
+            { sentence: "他______了一辆新车。", answer: "买" },
+            { sentence: "我们在饭馆______了三道菜。", answer: "点" },
+            { sentence: "今天我______得很晚。", answer: "睡" },
+            { sentence: "她唱歌唱得非常______。", answer: "好" },
+            { sentence: "明天是星期______。", answer: "六" },
+            { sentence: "这个问题我不______回答。", answer: "会" },
+            { sentence: "他帮了我很多______。", answer: "忙" },
+            { sentence: "我______朋友去图书馆学习。", answer: "和" },
+            { sentence: "这个苹果很______，我不喜欢。", answer: "酸" },
+            { sentence: "他每天______八点起床。", answer: "在" },
+            { sentence: "请把门打______。", answer: "开" },
+            { sentence: "我______你一起去。", answer: "跟" },
+            { sentence: "这本书是______的？", answer: "谁" },
+            { sentence: "她______得很漂亮。", answer: "穿" },
+            { sentence: "我们______学校见。", answer: "在" },
+            { sentence: "今天______星期一。", answer: "是" },
+            { sentence: "他______中文说得很好。", answer: "的" },
+            { sentence: "我想______一个苹果。", answer: "吃" },
+            { sentence: "这个包很______，只要二十块钱。", answer: "便宜" },
+            { sentence: "我______家在二楼。", answer: "住" },
+            { sentence: "他______自行车去超市。", answer: "骑" },
+            { sentence: "这个电影太______了。", answer: "长" },
+            { sentence: "我______会游泳。", answer: "不" },
+            { sentence: "她______唱歌跳舞。", answer: "会" },
+            { sentence: "我们______吃饭吧。", answer: "一起" },
+            { sentence: "北京______上海哪个大？", answer: "和" },
+            { sentence: "他______得很开心。", answer: "笑" },
+            { sentence: "我______妈妈去超市。", answer: "陪" },
+            { sentence: "这个字怎么______？", answer: "写" },
+            { sentence: "我______累了，想休息。", answer: "很" },
+            { sentence: "他______了一个新手机。", answer: "买" },
+            { sentence: "我们______明天考试。", answer: "要" },
+            { sentence: "她______得很快。", answer: "跑" },
+            { sentence: "这个房间很______。", answer: "干净" },
+            { sentence: "我______看电影。", answer: "喜欢" },
+            { sentence: "他______工作很忙。", answer: "因为" },
+            { sentence: "我们______回家吧。", answer: "该" }
+        ];
+
+        // DOM Elements
+        const questionTextEl = document.getElementById('question-text');
+        const questionNumberEl = document.getElementById('question-number');
+        const answerInput = document.getElementById('answer-input');
+        const submitBtn = document.getElementById('submit-btn');
+        const feedbackEl = document.getElementById('feedback');
+        const resultsEl = document.getElementById('results');
+        const finalScoreEl = document.getElementById('final-score');
+        const restartBtn = document.getElementById('restart-btn');
+        const progressEl = document.getElementById('progress');
+        const timerEl = document.getElementById('timer');
+        const speakBtn = document.getElementById('speak-btn');
+
+        // Game State
+        let currentQuestion = 0;
+        let score = 0;
+        let timeLeft = 45 * 60; // 45 minutes in seconds
+        let timer;
+        let speechSynthesisUtterance = null;
+
+        // Initialize Game
+        function initGame() {
+            currentQuestion = 0;
+            score = 0;
+            timeLeft = 45 * 60;
+            resultsEl.style.display = 'none';
+            feedbackEl.textContent = '';
+            feedbackEl.className = 'feedback';
+            loadQuestion();
+            startTimer();
+            
+            // Focus input
+            setTimeout(() => answerInput.focus(), 100);
+        }
+
+        // Load Current Question
+        function loadQuestion() {
+            if (currentQuestion >= questions.length) {
+                endGame();
+                return;
+            }
+            
+            const q = questions[currentQuestion];
+            // Create sentence without blank for TTS
+            const fullSentence = q.sentence.replace('______', q.answer);
+            questionTextEl.innerHTML = q.sentence.replace('______', '<span class="blank"></span>');
+            questionNumberEl.textContent = `Question ${currentQuestion + 1}`;
+            progressEl.textContent = `Question ${currentQuestion + 1} of ${questions.length}`;
+            answerInput.value = '';
+            answerInput.disabled = false;
+            submitBtn.disabled = false;
+            speakBtn.disabled = false;
+            feedbackEl.textContent = '';
+            
+            // Prepare TTS
+            if ('speechSynthesis' in window) {
+                speechSynthesisUtterance = new SpeechSynthesisUtterance(fullSentence);
+                speechSynthesisUtterance.lang = 'zh-CN';
+                speechSynthesisUtterance.rate = 0.9;
+                speechSynthesisUtterance.pitch = 1.0;
+                
+                // Try to find Xiaoxiao voice (Azure Neural Voice)
+                const voices = speechSynthesis.getVoices();
+                const xiaoxiaoVoice = voices.find(voice => 
+                    voice.name.includes('Xiaoxiao') || 
+                    voice.name.includes('xiaoxiao') ||
+                    (voice.lang === 'zh-CN' && voice.name.includes('Neural'))
+                );
+                
+                if (xiaoxiaoVoice) {
+                    speechSynthesisUtterance.voice = xiaoxiaoVoice;
+                } else {
+                    // Fallback to any Chinese voice
+                    const chineseVoice = voices.find(voice => voice.lang === 'zh-CN');
+                    if (chineseVoice) {
+                        speechSynthesisUtterance.voice = chineseVoice;
+                    }
+                }
+            }
+        }
+
+        // Start Timer
+        function startTimer() {
+            clearInterval(timer);
+            timer = setInterval(() => {
+                timeLeft--;
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                timerEl.textContent = `Time: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        // Speak the sentence
+        function speakSentence() {
+            if (!speechSynthesisUtterance) return;
+            
+            // Cancel any ongoing speech
+            speechSynthesis.cancel();
+            
+            // Disable button during speech
+            speakBtn.disabled = true;
+            
+            // Re-enable button after speech ends or after timeout
+            const enableButton = () => {
+                speakBtn.disabled = false;
+            };
+            
+            speechSynthesisUtterance.onend = enableButton;
+            speechSynthesisUtterance.onerror = enableButton;
+            
+            // Add a safety timeout
+            setTimeout(enableButton, 5000);
+            
+            speechSynthesis.speak(speechSynthesisUtterance);
+        }
+
+        // Check Answer
+        function checkAnswer() {
+            const userAnswer = answerInput.value.trim();
+            const correctAnswer = questions[currentQuestion].answer;
+            
+            answerInput.disabled = true;
+            submitBtn.disabled = true;
+            speakBtn.disabled = true;
+            
+            if (userAnswer === correctAnswer) {
+                score++;
+                feedbackEl.textContent = 'Correct! ✓';
+                feedbackEl.className = 'feedback correct';
+            } else {
+                feedbackEl.innerHTML = `Incorrect! ✗<br>Correct answer: ${correctAnswer}`;
+                feedbackEl.className = 'feedback incorrect';
+            }
+            
+            // Move to next question after delay
+            setTimeout(() => {
+                currentQuestion++;
+                loadQuestion();
+            }, 2000);
+        }
+
+        // End Game
+        function endGame() {
+            clearInterval(timer);
+            speechSynthesis.cancel();
+            resultsEl.style.display = 'block';
+            finalScoreEl.innerHTML = `Your Score: ${score} / ${questions.length}<br>${Math.round((score / questions.length) * 100)}%`;
+            answerInput.style.display = 'none';
+            submitBtn.style.display = 'none';
+            speakBtn.style.display = 'none';
+            questionTextEl.innerHTML = '<strong>Game Completed!</strong>';
+            questionNumberEl.textContent = '';
+            progressEl.textContent = '';
+        }
+
+        // Event Listeners
+        submitBtn.addEventListener('click', checkAnswer);
+        
+        answerInput.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') {
+                if (!submitBtn.disabled) {
+                    checkAnswer();
+                }
+            }
+        });
+        
+        restartBtn.addEventListener('click', () => {
+            answerInput.style.display = 'block';
+            submitBtn.style.display = 'block';
+            speakBtn.style.display = 'block';
+            initGame();
+        });
+        
+        speakBtn.addEventListener('click', speakSentence);
+
+        // Load voices when available
+        if ('speechSynthesis' in window) {
+            speechSynthesis.onvoiceschanged = () => {
+                // Voices are loaded, but we'll set them when loading each question
+            };
+        }
+
+        // Start the game
+        initGame();
+    </script>
+</body>
+</html>
+
